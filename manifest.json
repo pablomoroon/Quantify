@@ -1,6 +1,6 @@
 {
-  "name": "Libreta — Control de finanzas",
-  "short_name": "Libreta",
+  "name": "Quantify — Control de finanzas",
+  "short_name": "Quantify",
   "description": "Control de ingresos y gastos personales",
   "start_url": "./index.html",
   "scope": "./",
