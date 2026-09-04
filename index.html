@@ -12,8 +12,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Quantify">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="icon" href="favicon.ico">
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -47,6 +49,7 @@ body{
   min-height:100vh;
   padding-bottom:80px;
   -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
 }
 
 .mono{ font-family:'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
@@ -63,13 +66,15 @@ header.app-header{
   align-items:baseline;
   gap:10px;
   margin-bottom:22px;
+  flex-wrap:wrap;
+  row-gap:6px;
 }
-.brand .logo-mark{ display:block; flex-shrink:0; border-radius:22%; }
+.brand .mark{ width:11px; height:11px; border-radius:50%; background:var(--accent); display:inline-block; flex-shrink:0; }
 .brand h1{ font-family:'Fraunces', serif; font-weight:600; font-size:22px; letter-spacing:0.02em; }
 .brand span.tag{ color:var(--text-dim); font-size:12px; font-family:'IBM Plex Mono', monospace; text-transform:uppercase; letter-spacing:0.08em; }
-.brand .spacer{ flex:1; }
-.brand .user-email{ font-size:12px; color:var(--text-dim); font-family:'IBM Plex Mono', monospace; }
-.brand .logout-link{ background:none; border:none; color:var(--text-dim); font-size:12px; text-decoration:underline; cursor:pointer; }
+.brand .spacer{ flex:1; min-width:8px; }
+.brand .user-email{ font-size:12px; color:var(--text-dim); font-family:'IBM Plex Mono', monospace; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.brand .logout-link{ background:none; border:none; color:var(--text-dim); font-size:12px; text-decoration:underline; cursor:pointer; flex-shrink:0; }
 
 /* ---------- Hero balance ---------- */
 .hero{
@@ -150,6 +155,23 @@ main{ max-width:960px; margin:14px auto 24px; padding:0 20px; }
   .tx-amount{ grid-area:amount; }
   .tx-edit{ grid-area:edit; opacity:1; }
   .month-figures{ display:none; }
+}
+
+/* ---------- Small phones ---------- */
+@media (max-width:480px){
+  header.app-header{ padding:20px 16px 16px; }
+  .brand span.tag{ display:none; }
+  .brand .user-email{ max-width:110px; }
+  .brand h1{ font-size:19px; }
+  .hero{ padding:20px 18px; }
+  .hero-amount{ font-size:34px; }
+  .actions-row, .nav-tabs, main, .filter-tabs, .group-select-row, .history, .historial-cards, .cards-wrap, .recurring-wrap{ padding-left:16px; padding-right:16px; }
+  .nav-tab{ margin-right:16px; font-size:13px; }
+  .hist-stats{ gap:6px; }
+  .hist-stat{ padding:8px 4px; }
+  .hist-stat .val{ font-size:13px; }
+  .modal{ padding:18px; }
+  .month-title{ font-size:16px; }
 }
 
 /* ---------- Filter tabs ---------- */
@@ -355,7 +377,7 @@ main{ max-width:960px; margin:14px auto 24px; padding:0 20px; }
 <!-- ============ SETUP SCREEN (shown until Firebase config is filled in) ============ -->
 <div class="center-screen hidden" id="setupScreen">
   <div class="setup-card">
-    <div class="brand"><img class="logo-mark" src="icon-192.png" width="26" height="26" alt=""><h1>Quantify</h1></div>
+    <div class="brand"><span class="mark"></span><h1>Quantify</h1></div>
     <h2>Configura tu acceso privado</h2>
     <p>Para usar esta app fuera de Claude, en cualquier dispositivo, con tus propios datos privados y sincronizados, necesita conectarse a una base de datos gratuita tuya (Firebase de Google). Son 5 minutos, una sola vez.</p>
     <ol>
@@ -382,7 +404,7 @@ service cloud.firestore {
 <!-- ============ AUTH SCREEN (login / signup) ============ -->
 <div class="center-screen hidden" id="authScreen">
   <div class="auth-card">
-    <div class="brand"><img class="logo-mark" src="icon-192.png" width="26" height="26" alt=""><h1>Quantify</h1></div>
+    <div class="brand"><span class="mark"></span><h1>Quantify</h1></div>
     <h2 id="authTitle">Inicia sesión</h2>
     <p class="sub" id="authSub">Accede con tu cuenta para ver tus finanzas en cualquier dispositivo.</p>
     <div class="auth-error" id="authError"></div>
@@ -413,7 +435,7 @@ service cloud.firestore {
 <!-- ============ VERIFY EMAIL SCREEN ============ -->
 <div class="center-screen hidden" id="verifyScreen">
   <div class="auth-card">
-    <div class="brand"><img class="logo-mark" src="icon-192.png" width="26" height="26" alt=""><h1>Quantify</h1></div>
+    <div class="brand"><span class="mark"></span><h1>Quantify</h1></div>
     <h2>Verifica tu correo</h2>
     <p class="sub">Te hemos enviado un enlace de verificación a <b id="verifyEmailText" style="color:var(--text);"></b>. Ábrelo desde tu correo y luego pulsa "Ya verifiqué mi correo".</p>
     <div class="auth-error" id="verifyError"></div>
@@ -428,7 +450,7 @@ service cloud.firestore {
 
 <header class="app-header">
   <div class="brand">
-    <img class="logo-mark" src="icon-192.png" width="26" height="26" alt="">
+    <span class="mark"></span>
     <h1>Quantify</h1>
     <span class="tag">Control de finanzas</span>
     <span class="spacer"></span>
