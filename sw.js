@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quantify-cache-v5';
+const CACHE_NAME = 'quantify-cache-v7';
 const CORE_ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './favicon.ico', './favicon-32.png', './favicon-16.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {

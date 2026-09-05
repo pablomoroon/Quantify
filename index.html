@@ -937,6 +937,7 @@ function currentMonthKey(){ const d = new Date(); return `${d.getFullYear()}-${S
 async function processRecurring(){
   if(!recurring || recurring.length === 0) return;
   const nowKey = currentMonthKey();
+  const today = todayStr();
   const [ny, nm] = nowKey.split('-').map(Number);
   let changed = false;
 
@@ -948,23 +949,28 @@ async function processRecurring(){
     let guard = 0;
     while((cy < ny || (cy === ny && cm <= nm)) && guard < 36){
       const key = `${cy}-${String(cm).padStart(2,'0')}`;
+      const isCurrentMonth = (cy === ny && cm === nm);
       if(!r.generated.includes(key)){
         const dim = new Date(cy, cm, 0).getDate();
         const day = Math.min(r.day || 1, dim);
         const dateStr = `${cy}-${String(cm).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-        transactions.push({
-          id: genId(),
-          amount: r.amount,
-          description: r.description,
-          date: dateStr,
-          type: r.type,
-          method: r.method,
-          cardName: r.cardName || '',
-          group: r.group || '',
-          recurringId: r.id
-        });
-        r.generated.push(key);
-        changed = true;
+        // En el mes en curso, no se genera hasta que llegue el día indicado.
+        // Los meses anteriores ya completados sí se generan igualmente (para no perder movimientos).
+        if(!isCurrentMonth || dateStr <= today){
+          transactions.push({
+            id: genId(),
+            amount: r.amount,
+            description: r.description,
+            date: dateStr,
+            type: r.type,
+            method: r.method,
+            cardName: r.cardName || '',
+            group: r.group || '',
+            recurringId: r.id
+          });
+          r.generated.push(key);
+          changed = true;
+        }
       }
       cm++; if(cm > 12){ cm = 1; cy++; }
       guard++;
@@ -1202,7 +1208,7 @@ function renderHistorialCards(){
 
 function openMonthOverlay(key){
   const groups = groupByMonth();
-  const list = (groups[key] || []).slice().sort((a,b)=> b.date.localeCompare(a.date));
+  const list = (groups[key] || []).slice().reverse().sort((a,b)=> b.date.localeCompare(a.date));
   const totals = computeTotals(list);
 
   $('monthOverlayTitle').textContent = monthLabel(key);
@@ -1264,7 +1270,7 @@ function renderMonths(){
   }
 
   main.innerHTML = visibleBlocks.map(k => {
-    const fullList = monthGroups[k].slice().sort((a,b)=> b.date.localeCompare(a.date));
+    const fullList = monthGroups[k].slice().reverse().sort((a,b)=> b.date.localeCompare(a.date));
     const list = fullList.filter(tx => (activeFilter === 'all' || tx.type === activeFilter) && matchesGroupFilter(tx));
     const totals = computeTotals(fullList);
     const isCollapsed = collapsedMonths.has(k);
@@ -1367,7 +1373,7 @@ function renderGroupsTab(){
 }
 
 function openGroupOverlay(name){
-  const list = transactions.filter(t => t.group === name).slice().sort((a,b)=> b.date.localeCompare(a.date));
+  const list = transactions.filter(t => t.group === name).slice().reverse().sort((a,b)=> b.date.localeCompare(a.date));
   const totals = computeTotals(list);
   const g = getGroup(name);
 
