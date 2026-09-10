@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quantify — Control de finanzas</title>
 
+<script>
+  // Aplica el tema guardado ANTES de pintar la página, para que no haya
+  // parpadeo (un instante en oscuro y luego cambia a claro, o al revés).
+  (function(){
+    try{
+      var pref = localStorage.getItem('quantify-theme') || 'dark';
+      var isLight = pref === 'light' || (pref === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+      if(isLight) document.documentElement.setAttribute('data-theme', 'light');
+    }catch(e){}
+  })();
+</script>
+
 <!-- PWA: hace que la app se pueda "instalar" en móvil y PC -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#151b24">
@@ -39,6 +51,23 @@
   --expense-soft:#3d2828;
   --radius:10px;
 }
+
+html[data-theme="light"]{
+  --bg:#f6f2ea;
+  --surface:#ffffff;
+  --surface-2:#f0ebe1;
+  --border:#ddd4c2;
+  --text:#211d17;
+  --text-dim:#75695a;
+  --accent:#b56f3d;
+  --accent-soft:#8a5228;
+  --income:#3f8462;
+  --income-soft:#dcefe4;
+  --expense:#b8514d;
+  --expense-soft:#f6dede;
+}
+
+body{ transition:background-color .15s ease, color .15s ease; }
 
 *{box-sizing:border-box; margin:0; padding:0;}
 
@@ -88,6 +117,10 @@ header.app-header{
   align-items:end;
 }
 .hero-label{ font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-dim); margin-bottom:6px; }
+.hero-label-row{ display:flex; align-items:center; gap:8px; }
+.eye-toggle{ background:none; border:none; color:var(--text-dim); font-size:13px; padding:2px 4px; line-height:1; opacity:0.7; }
+.eye-toggle:hover{ opacity:1; }
+.eye-toggle.is-hidden{ color:var(--accent-soft); opacity:1; }
 .hero-amount{ font-family:'Fraunces', serif; font-weight:600; font-size:44px; line-height:1; letter-spacing:-0.01em; }
 .hero-amount.neg{ color:var(--expense); }
 .hero-sub{ margin-top:10px; display:flex; gap:18px; flex-wrap:wrap; }
@@ -193,15 +226,32 @@ main{ max-width:960px; margin:14px auto 24px; padding:0 20px; }
 .history-chart-svg{ display:block; }
 
 /* ---------- Presupuesto mensual ---------- */
-.budget-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
-.budget-row input{ max-width:160px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-size:15px; font-family:'IBM Plex Mono', monospace; }
-.budget-row input:focus{ outline:none; border-color:var(--accent); }
-.budget-row .btn-primary{ padding:10px 16px; }
-.budget-clear{ font-size:12px; color:var(--text-dim); text-decoration:underline; cursor:pointer; }
-.budget-clear:hover{ color:var(--expense); }
-.budget-bar{ height:6px; border-radius:4px; background:var(--surface-2); overflow:hidden; margin-bottom:10px; }
+.budget-wrap{ max-width:640px; margin:0 auto; padding:0 20px 24px; }
+.budget-month-nav{ display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:16px; position:relative; }
+.budget-nav-btn{ padding:8px 14px; font-size:16px; line-height:1; border-radius:50%; }
+.budget-month-label{ font-family:'Fraunces', serif; font-weight:600; font-size:17px; min-width:170px; text-align:center; text-transform:capitalize; }
+.budget-today-link{ position:absolute; right:0; top:50%; transform:translateY(-50%); font-size:12px; color:var(--accent-soft); text-decoration:underline; cursor:pointer; }
+.budget-groups-list{ display:flex; flex-direction:column; gap:14px; }
+.budget-group-row{ padding-bottom:14px; border-bottom:1px solid var(--border); }
+.budget-group-row:last-child{ border-bottom:none; padding-bottom:0; }
+.budget-group-top{ display:flex; justify-content:space-between; align-items:baseline; font-size:14px; margin-bottom:8px; }
+.budget-group-msg{ font-size:12.5px; margin-bottom:8px; }
+.budget-group-actions{ display:flex; gap:14px; font-size:11.5px; }
+.budget-group-actions a{ color:var(--text-dim); text-decoration:underline; cursor:pointer; }
+.budget-group-actions a:hover{ color:var(--text); }
+.budget-group-actions a.danger:hover{ color:var(--expense); }
+.fixed-badge{ font-size:11px; }
+.budget-total-row{ margin-top:14px; padding-top:12px; border-top:1px solid var(--border); font-size:12.5px; color:var(--text-dim); }
+.budget-bar{ height:6px; border-radius:4px; background:var(--surface-2); overflow:hidden; margin-bottom:8px; }
 .budget-bar-fill{ height:100%; border-radius:4px; transition:width .2s ease; }
 .budget-empty-hint{ color:var(--text-dim); font-size:13px; line-height:1.6; }
+.budget-add-form{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; }
+.budget-add-form h3{ font-family:'Fraunces', serif; font-size:16px; margin-bottom:14px; }
+.budget-add-form select{ background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:11px 12px; color:var(--text); font-size:15px; flex:1; }
+.budget-add-form select:focus{ outline:none; border-color:var(--accent); }
+.budget-add-form input{ max-width:130px; }
+.field-checkbox-label{ display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--text); cursor:pointer; }
+.field-checkbox-label input[type="checkbox"]{ width:17px; height:17px; accent-color:var(--accent); cursor:pointer; }
 .hist-budget-chip{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; padding:3px 8px; border-radius:20px; }
 .hist-budget-chip.over{ background:var(--expense-soft); color:var(--expense); }
 .hist-budget-chip.under{ background:var(--income-soft); color:var(--income); }
@@ -247,6 +297,17 @@ main{ max-width:960px; margin:14px auto 24px; padding:0 20px; }
 .card-remove{ background:none; border:none; color:var(--text-dim); font-size:13px; text-decoration:underline; }
 .card-remove:hover{ color:var(--expense); }
 .cards-empty{ color:var(--text-dim); font-size:13.5px; text-align:center; padding:30px 0; }
+
+/* ---------- Ajustes ---------- */
+.settings-wrap{ max-width:560px; margin:16px auto 24px; padding:0 20px; display:flex; flex-direction:column; gap:16px; }
+.settings-card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; }
+.settings-card h3{ font-family:'Fraunces', serif; font-size:16px; margin-bottom:14px; }
+.settings-row{ display:flex; justify-content:space-between; align-items:center; font-size:14px; margin-bottom:14px; }
+.settings-row-label{ color:var(--text-dim); }
+.settings-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+.settings-actions .btn-ghost{ flex:1; min-width:140px; text-align:center; }
+#themeToggle .method-btn{ font-size:13px; padding:10px 6px; }
+#themeToggle .method-btn.active{ background:var(--surface-2); color:var(--accent-soft); border-color:var(--accent); }
 
 /* ---------- Grupos (categorías) ---------- */
 .group-tag{ display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:10.5px; padding:2px 8px; border-radius:20px; background:var(--surface-2); color:var(--accent-soft); border:1px solid var(--border); margin-left:6px; }
@@ -455,12 +516,15 @@ service cloud.firestore {
     <span class="tag">Control de finanzas</span>
     <span class="spacer"></span>
     <span class="user-email mono" id="userEmail"></span>
-    <button class="logout-link" id="logoutBtn">Cerrar sesión</button>
+    <button class="logout-link" id="settingsLink" data-view-link="ajustes">⚙ Ajustes</button>
   </div>
 
   <div class="hero" id="hero">
     <div>
-      <div class="hero-label">Total ahorrado</div>
+      <div class="hero-label-row">
+        <div class="hero-label">Total ahorrado</div>
+        <button class="eye-toggle" id="eyeToggleBtn" type="button" aria-label="Mostrar u ocultar cantidades">👁️</button>
+      </div>
       <div class="hero-amount mono" id="heroAmount">—</div>
       <div class="hero-sub">
         <div class="hero-stat income">Ingresos <b id="heroIncome" class="mono">—</b></div>
@@ -474,9 +538,11 @@ service cloud.firestore {
 <nav class="nav-tabs" id="navTabs">
   <button class="nav-tab active" data-view="movimientos">Movimientos</button>
   <button class="nav-tab" data-view="historial">Historial</button>
+  <button class="nav-tab" data-view="presupuesto">Presupuesto</button>
   <button class="nav-tab" data-view="grupos">Grupos</button>
   <button class="nav-tab" data-view="recurrentes">Recurrentes</button>
   <button class="nav-tab" data-view="tarjetas">Tarjetas</button>
+  <button class="nav-tab" data-view="ajustes">Ajustes</button>
 </nav>
 
 <section id="viewMovimientos" class="view">
@@ -505,20 +571,6 @@ service cloud.firestore {
   <div class="history" style="margin-top:16px;">
     <div class="history-card">
       <div class="history-head">
-        <div class="history-title">Presupuesto mensual</div>
-        <span style="font-size:11px; color:var(--text-dim); font-family:'IBM Plex Mono', monospace; text-transform:uppercase; letter-spacing:0.05em;">opcional</span>
-      </div>
-      <div class="budget-row">
-        <input type="number" id="budgetInput" min="0" step="1" placeholder="Ej. 900">
-        <button class="btn-primary" id="budgetSaveBtn">Guardar</button>
-        <span class="budget-clear hidden" id="budgetClearLink">Quitar presupuesto</span>
-      </div>
-      <div id="budgetStatus"></div>
-    </div>
-  </div>
-  <div class="history">
-    <div class="history-card">
-      <div class="history-head">
         <div class="history-title">Ahorro y gasto por mes</div>
         <div class="history-legend">
           <span><i class="income"></i>Ingresos</span>
@@ -533,6 +585,37 @@ service cloud.firestore {
   <div id="historialCards" class="historial-cards"></div>
 </section>
 
+<section id="viewPresupuesto" class="view hidden">
+  <div class="budget-wrap" style="margin-top:16px;">
+    <div class="budget-month-nav">
+      <button class="btn-ghost budget-nav-btn" id="budgetPrevMonth" type="button" aria-label="Mes anterior">‹</button>
+      <div class="budget-month-label" id="budgetMonthLabel">—</div>
+      <button class="btn-ghost budget-nav-btn" id="budgetNextMonth" type="button" aria-label="Mes siguiente">›</button>
+      <span class="budget-today-link hidden" id="budgetTodayLink">Ir a este mes</span>
+    </div>
+
+    <div class="history-card" style="margin-bottom:20px;">
+      <div id="budgetStatus"></div>
+    </div>
+
+    <div class="budget-add-form">
+      <h3>Añadir al presupuesto</h3>
+      <div class="group-form-row">
+        <select id="budgetGroupSelect"></select>
+        <input type="number" id="budgetAmountInput" class="mono-input" min="0" step="1" placeholder="Ej. 50">
+      </div>
+      <label class="field-checkbox-label" style="margin-top:10px;">
+        <input type="checkbox" id="budgetFixedInput">
+        📌 Fijo — repetir automáticamente cada mes
+      </label>
+      <div class="modal-actions" style="margin-top:14px;">
+        <button class="btn-primary" id="budgetAddBtn" style="flex:1; justify-content:center;">Añadir</button>
+      </div>
+      <div class="field-hint" id="budgetNoGroupsHint" style="display:none;">Antes crea algún grupo en la pestaña <a id="goToGroupsFromPresupuesto" style="color:var(--accent-soft); cursor:pointer; text-decoration:underline;">Grupos</a> (por ejemplo "📱 Móvil"), y luego vuelve aquí para ponerle presupuesto.</div>
+    </div>
+  </div>
+</section>
+
 <section id="viewGrupos" class="view hidden">
   <div class="groups-wrap" style="margin-top:16px;">
     <div class="group-form">
@@ -541,7 +624,7 @@ service cloud.firestore {
         <input type="text" id="newGroupEmojiInput" class="emoji-field" placeholder="🏷️" maxlength="4">
         <input type="text" id="newGroupInput" class="name-field" placeholder="Ej. Viajes, Comida, Casa...">
       </div>
-      <div class="field-hint" style="margin-top:8px;">Pon el emoji que quieras (puedes pegarlo desde el teclado de tu móvil) y el nombre del grupo.</div>
+      <div class="field-hint" style="margin-top:8px;">Pon el emoji que quieras (puedes pegarlo desde el teclado de tu móvil) y el nombre del grupo. El presupuesto de cada grupo se gestiona en la pestaña Presupuesto.</div>
       <div class="modal-actions" style="margin-top:14px;">
         <button class="btn-delete hidden" id="groupDeleteBtn">Eliminar</button>
         <button class="btn-primary" id="groupSaveBtn">Añadir grupo</button>
@@ -611,6 +694,44 @@ service cloud.firestore {
       <button class="btn-primary" id="addCardBtn">Añadir</button>
     </div>
     <div id="cardsList"></div>
+  </div>
+</section>
+
+<section id="viewAjustes" class="view hidden">
+  <div class="settings-wrap">
+
+    <div class="settings-card">
+      <h3>Cuenta</h3>
+      <div class="settings-row">
+        <span class="settings-row-label">Correo</span>
+        <span class="mono" id="settingsEmail">—</span>
+      </div>
+      <div class="settings-actions">
+        <button class="btn-ghost" id="changePasswordBtn">Cambiar contraseña</button>
+        <button class="btn-ghost" id="settingsLogoutBtn" style="color:var(--expense); border-color:var(--expense);">Cerrar sesión</button>
+      </div>
+      <div class="field-hint" id="passwordHint" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="settings-card">
+      <h3>Apariencia</h3>
+      <div class="field-hint" style="margin-bottom:12px;">Elige cómo se ve Quantify. "Automático" sigue el ajuste de tu móvil u ordenador.</div>
+      <div class="type-toggle" id="themeToggle">
+        <button class="method-btn" data-theme-opt="dark" type="button">🌙 Oscuro</button>
+        <button class="method-btn" data-theme-opt="light" type="button">☀️ Claro</button>
+        <button class="method-btn" data-theme-opt="auto" type="button">🔄 Automático</button>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3>Privacidad</h3>
+      <label class="field-checkbox-label">
+        <input type="checkbox" id="hideAmountsInput">
+        🙈 Ocultar las cantidades al abrir la app
+      </label>
+      <div class="field-hint" style="margin-top:8px;">Al entrar verás puntos en vez de números. Pulsa el icono del ojo (👁️) junto al total para mostrarlos cuando quieras, ese toque solo dura mientras tengas la app abierta.</div>
+    </div>
+
   </div>
 </section>
 
@@ -709,13 +830,18 @@ const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'TU_API_
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const $ = (id) => document.getElementById(id);
-const fmt = (n) => new Intl.NumberFormat('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n) + ' €';
+let amountsHidden = false;
+const fmt = (n) => amountsHidden ? '•••••' : new Intl.NumberFormat('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n) + ' €';
 
 let transactions = [];
 let cards = [];
 let groups = [];
 let recurring = [];
-let budget = 0;
+let budgetTemplate = {};   // { groupName: amount } — presupuesto fijo, se repite cada mes
+let budgetByMonth = {};    // { "YYYY-MM": { groupName: amount|null } } — cambios propios de cada mes
+let budgetViewMonth = null; // mes que se está viendo/editando en la pestaña Presupuesto
+let themePref = (function(){ try{ return localStorage.getItem('quantify-theme') || 'dark'; }catch(e){ return 'dark'; } })();       // 'dark' | 'light' | 'auto'
+let hideAmountsOnOpen = false;
 let editingId = null;
 let currentType = 'gasto';
 let currentMethod = 'efectivo';
@@ -878,7 +1004,14 @@ if(isConfigured){
   $('authPassword').addEventListener('keydown', (e) => { if(e.key === 'Enter') handleAuthSubmit(); });
   $('authPasswordConfirm').addEventListener('keydown', (e) => { if(e.key === 'Enter') handleAuthSubmit(); });
   $('googleSignInBtn').addEventListener('click', handleGoogleSignIn);
-  $('logoutBtn').addEventListener('click', () => auth.signOut());
+  $('settingsLink').addEventListener('click', () => switchView('ajustes'));
+  $('settingsLogoutBtn').addEventListener('click', () => auth.signOut());
+  $('eyeToggleBtn').addEventListener('click', toggleAmountsHidden);
+  $('changePasswordBtn').addEventListener('click', handleChangePassword);
+  $('themeToggle').querySelectorAll('[data-theme-opt]').forEach(btn => {
+    btn.addEventListener('click', () => setThemePref(btn.getAttribute('data-theme-opt')));
+  });
+  $('hideAmountsInput').addEventListener('change', (e) => setHideAmountsOnOpen(e.target.checked));
   $('verifyCheckBtn').addEventListener('click', handleVerifyCheck);
   $('verifyResendBtn').addEventListener('click', handleVerifyResend);
   $('verifyLogoutLink').addEventListener('click', () => auth.signOut());
@@ -886,6 +1019,7 @@ if(isConfigured){
 
 /* ---------------- Data (Firestore) ---------------- */
 async function loadData(){
+  budgetViewMonth = currentMonthKey();
   try{
     const doc = await db.collection('users').doc(currentUser.uid).get();
     if(doc.exists){
@@ -894,13 +1028,26 @@ async function loadData(){
       cards = data.cards || [];
       groups = (data.groups || []).map(g => typeof g === 'string' ? { name: g, emoji: '🏷️' } : g);
       recurring = data.recurring || [];
-      budget = data.budget || 0;
+      budgetTemplate = data.budgetTemplate || {};
+      budgetByMonth = data.budgetByMonth || {};
+      const settings = data.settings || {};
+      themePref = settings.theme || 'dark';
+      hideAmountsOnOpen = !!settings.hideAmountsOnOpen;
+      // Migración: versión anterior guardaba el presupuesto dentro de cada grupo (g.budget).
+      if(Object.keys(budgetTemplate).length === 0){
+        let migrated = false;
+        groups.forEach(g => { if(g.budget > 0){ budgetTemplate[g.name] = g.budget; migrated = true; } });
+        if(migrated){ groups.forEach(g => { delete g.budget; }); }
+      }
     } else {
       transactions = [];
       cards = [];
       groups = [];
       recurring = [];
-      budget = 0;
+      budgetTemplate = {};
+      budgetByMonth = {};
+      themePref = 'dark';
+      hideAmountsOnOpen = false;
     }
   }catch(e){
     showToast('No se pudieron cargar tus datos.');
@@ -908,18 +1055,100 @@ async function loadData(){
     cards = [];
     groups = [];
     recurring = [];
-    budget = 0;
+    budgetTemplate = {};
+    budgetByMonth = {};
   }
+  amountsHidden = hideAmountsOnOpen;
+  applyTheme(themePref);
   await processRecurring();
   render();
 }
 
 async function saveData(){
   try{
-    await db.collection('users').doc(currentUser.uid).set({ transactions, cards, groups, recurring, budget }, { merge:false });
+    await db.collection('users').doc(currentUser.uid).set({
+      transactions, cards, groups, recurring, budgetTemplate, budgetByMonth,
+      settings: { theme: themePref, hideAmountsOnOpen }
+    }, { merge:false });
   }catch(e){
     showToast('Error al guardar los datos.');
   }
+}
+
+/* ---------------- Apariencia (tema claro/oscuro/automático) ---------------- */
+let systemThemeListenerAttached = false;
+function applyTheme(pref){
+  themePref = pref;
+  try{ localStorage.setItem('quantify-theme', pref); }catch(e){}
+
+  const systemPrefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  const isLight = pref === 'light' || (pref === 'auto' && systemPrefersLight);
+  document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if(themeColorMeta) themeColorMeta.setAttribute('content', isLight ? '#f6f2ea' : '#151b24');
+
+  if(pref === 'auto' && !systemThemeListenerAttached && window.matchMedia){
+    systemThemeListenerAttached = true;
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+      if(themePref === 'auto') applyTheme('auto');
+    });
+  }
+  renderThemeToggle();
+}
+function renderThemeToggle(){
+  const wrap = $('themeToggle');
+  if(!wrap) return;
+  wrap.querySelectorAll('[data-theme-opt]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-theme-opt') === themePref);
+  });
+}
+async function setThemePref(pref){
+  applyTheme(pref);
+  await saveData();
+}
+
+/* ---------------- Privacidad (ocultar cantidades) ---------------- */
+function renderEyeToggle(){
+  const btn = $('eyeToggleBtn');
+  if(!btn) return;
+  btn.textContent = amountsHidden ? '🙈' : '👁️';
+  btn.classList.toggle('is-hidden', amountsHidden);
+}
+function toggleAmountsHidden(){
+  amountsHidden = !amountsHidden;
+  render();
+}
+async function setHideAmountsOnOpen(value){
+  hideAmountsOnOpen = value;
+  await saveData();
+}
+
+/* ---------------- Cuenta ---------------- */
+function renderAccountSection(){
+  if(!currentUser) return;
+  $('settingsEmail').textContent = currentUser.email || '—';
+  const isGoogleUser = currentUser.providerData.some(p => p.providerId === 'google.com');
+  $('changePasswordBtn').classList.toggle('hidden', isGoogleUser);
+  $('passwordHint').textContent = isGoogleUser
+    ? 'Tu cuenta usa Google para entrar, así que la contraseña se gestiona desde tu cuenta de Google.'
+    : '';
+}
+async function handleChangePassword(){
+  if(!currentUser || !currentUser.email) return;
+  const hint = $('passwordHint');
+  try{
+    await auth.sendPasswordResetEmail(currentUser.email);
+    hint.textContent = `Te hemos enviado un correo a ${currentUser.email} con un enlace para cambiar tu contraseña.`;
+    showToast('Correo enviado.');
+  }catch(e){
+    hint.textContent = 'No se pudo enviar el correo. Inténtalo de nuevo en un momento.';
+  }
+}
+
+function renderAjustesTab(){
+  renderAccountSection();
+  renderThemeToggle();
+  $('hideAmountsInput').checked = hideAmountsOnOpen;
 }
 
 function showToast(msg){
@@ -1011,6 +1240,7 @@ function computeTotals(list){
 
 /* ---------------- Render ---------------- */
 function render(){
+  renderEyeToggle();
   renderHero();
   renderHistoryChart();
   renderBudgetCard();
@@ -1020,58 +1250,190 @@ function render(){
   renderCardsTab();
   renderGroupsTab();
   renderRecurringTab();
+  renderAjustesTab();
 }
 
-/* ---------------- Presupuesto mensual ---------------- */
+/* ---------------- Presupuesto mensual (fijo + por mes) ---------------- */
 function monthExpense(mKey){
   return transactions
     .filter(t => t.type === 'gasto' && monthKey(t.date) === mKey)
     .reduce((sum, t) => sum + t.amount, 0);
 }
+function monthExpenseForGroup(groupName, mKey){
+  return transactions
+    .filter(t => t.type === 'gasto' && t.group === groupName && monthKey(t.date) === mKey)
+    .reduce((sum, t) => sum + t.amount, 0);
+}
+
+// Importe efectivo para un grupo en un mes: su valor propio de ese mes si existe
+// (incluido null = "quitado solo este mes"), si no, el valor fijo por defecto.
+function effectiveBudget(groupName, mKey){
+  const overrides = budgetByMonth[mKey];
+  if(overrides && Object.prototype.hasOwnProperty.call(overrides, groupName)){
+    return overrides[groupName];
+  }
+  return budgetTemplate[groupName] > 0 ? budgetTemplate[groupName] : null;
+}
+function effectiveBudgetItemsForMonth(mKey){
+  const names = new Set([...Object.keys(budgetTemplate), ...Object.keys(budgetByMonth[mKey] || {})]);
+  const items = [];
+  names.forEach(name => {
+    const amount = effectiveBudget(name, mKey);
+    if(amount > 0){
+      items.push({ name, amount, fixed: budgetTemplate.hasOwnProperty(name) });
+    }
+  });
+  return items.sort((a,b) => b.amount - a.amount);
+}
+function monthBudgetTotal(mKey){
+  return effectiveBudgetItemsForMonth(mKey).reduce((sum, it) => sum + it.amount, 0);
+}
+function setMonthOverride(groupName, mKey, amountOrNull){
+  if(!budgetByMonth[mKey]) budgetByMonth[mKey] = {};
+  budgetByMonth[mKey][groupName] = amountOrNull;
+}
+
+function shiftBudgetMonth(delta){
+  const [y, m] = budgetViewMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  budgetViewMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderBudgetCard();
+}
 
 function renderBudgetCard(){
-  $('budgetInput').value = budget > 0 ? budget : '';
-  $('budgetClearLink').classList.toggle('hidden', !(budget > 0));
+  const mKey = budgetViewMonth;
+  $('budgetMonthLabel').textContent = monthLabel(mKey);
+  $('budgetTodayLink').classList.toggle('hidden', mKey === currentMonthKey());
 
   const statusEl = $('budgetStatus');
-  if(!(budget > 0)){
-    statusEl.innerHTML = `<div class="budget-empty-hint">Define cuánto esperas gastar este mes y aquí verás si te pasas o te queda margen, tanto ahora como en cada mes de tu historial.</div>`;
-    return;
+  const items = effectiveBudgetItemsForMonth(mKey);
+
+  if(items.length === 0){
+    statusEl.innerHTML = `<div class="budget-empty-hint">Todavía no has añadido nada al presupuesto de ${monthLabel(mKey)}. Usa el formulario de abajo para añadir partidas, por ejemplo 50€ a "📱 Móvil" o 40€ a "🍽️ Comida".</div>`;
+  } else {
+    const rows = items.map(it => {
+      const g = getGroup(it.name);
+      const emoji = g ? g.emoji : '🏷️';
+      const spent = monthExpenseForGroup(it.name, mKey);
+      const over = spent > it.amount;
+      const diff = Math.abs(spent - it.amount);
+      const pct = Math.round((spent / it.amount) * 100);
+      return `
+        <div class="budget-group-row" data-group="${escapeHtml(it.name)}">
+          <div class="budget-group-top">
+            <span>${escapeHtml(emoji)} ${escapeHtml(it.name)} ${it.fixed ? '<span class="fixed-badge" title="Fijo: se repite cada mes">📌</span>' : ''}</span>
+            <span class="mono">${fmt(spent)} <span style="color:var(--text-dim);">/ ${fmt(it.amount)}</span></span>
+          </div>
+          <div class="budget-bar"><div class="budget-bar-fill" style="width:${Math.min(100, pct)}%; background:${over ? 'var(--expense)' : 'var(--income)'};"></div></div>
+          <div class="budget-group-msg" style="color:${over ? 'var(--expense)' : 'var(--text-dim)'};">
+            ${over ? `Te has pasado ${fmt(diff)} (${pct-100}%)` : `Te quedan ${fmt(diff)} (${pct}% usado)`}
+          </div>
+          <div class="budget-group-actions">
+            <a data-act="edit">Cambiar importe</a>
+            <a data-act="toggle-fixed">${it.fixed ? 'Quitar de fijos' : 'Marcar como fijo'}</a>
+            <a data-act="remove" class="danger">Quitar${it.fixed ? ' solo este mes' : ''}</a>
+          </div>
+        </div>`;
+    }).join('');
+
+    const total = items.reduce((s,it) => s + it.amount, 0);
+    const totalSpent = items.reduce((s,it) => s + monthExpenseForGroup(it.name, mKey), 0);
+
+    statusEl.innerHTML = `
+      <div class="budget-groups-list">${rows}</div>
+      <div class="budget-total-row">Total presupuestado: <b class="mono">${fmt(total)}</b> · Gastado en esas partidas: <b class="mono">${fmt(totalSpent)}</b></div>`;
+
+    statusEl.querySelectorAll('.budget-group-row').forEach(row => {
+      const name = row.getAttribute('data-group');
+      row.querySelector('[data-act="edit"]').addEventListener('click', () => editBudgetItemAmount(name));
+      row.querySelector('[data-act="toggle-fixed"]').addEventListener('click', () => toggleBudgetItemFixed(name));
+      row.querySelector('[data-act="remove"]').addEventListener('click', () => removeBudgetItem(name));
+    });
   }
-  const expense = monthExpense(monthKey(todayStr()));
-  const over = expense > budget;
-  const diff = Math.abs(expense - budget);
-  const pct = Math.round((expense / budget) * 100);
-  statusEl.innerHTML = `
-    <div class="budget-bar"><div class="budget-bar-fill" style="width:${Math.min(100, pct)}%; background:${over ? 'var(--expense)' : 'var(--income)'};"></div></div>
-    <div style="font-size:13.5px; color:var(--text); line-height:1.6;">
-      Este mes llevas <b class="mono">${fmt(expense)}</b> gastados de un presupuesto de <b class="mono">${fmt(budget)}</b> —
-      ${over
-        ? `<b style="color:var(--expense);">te has pasado ${fmt(diff)} (${pct-100}%)</b>.`
-        : `<b style="color:var(--income);">te quedan ${fmt(diff)}</b> (${pct}% usado).`}
-    </div>`;
+
+  renderBudgetGroupSelect();
 }
 
-function budgetFootRowHtml(expense){
-  if(!(budget > 0)) return '';
-  const over = expense > budget;
-  const diff = Math.abs(expense - budget);
-  const pct = Math.round((diff / budget) * 100);
-  return `<div class="hist-foot" style="border-top:none; padding-top:6px;"><span>Presupuesto (${fmt(budget)})</span><span class="amt" style="color:${over ? 'var(--expense)' : 'var(--income)'};">${over ? '+' : '−'}${fmt(diff)} (${pct}%)</span></div>`;
+function renderBudgetGroupSelect(){
+  const sel = $('budgetGroupSelect');
+  const mKey = budgetViewMonth;
+  const already = new Set(effectiveBudgetItemsForMonth(mKey).map(it => it.name));
+  const available = groups.filter(g => !already.has(g.name));
+  $('budgetNoGroupsHint').style.display = groups.length === 0 ? 'block' : 'none';
+  if(available.length === 0){
+    sel.innerHTML = `<option value="">— No hay grupos disponibles —</option>`;
+    sel.disabled = true;
+  } else {
+    sel.disabled = false;
+    sel.innerHTML = available.map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.emoji)} ${escapeHtml(g.name)}</option>`).join('');
+  }
 }
 
-async function saveBudget(){
-  const val = parseFloat($('budgetInput').value);
-  budget = (!isNaN(val) && val > 0) ? val : 0;
+async function handleAddBudgetItem(){
+  const name = $('budgetGroupSelect').value;
+  const amountVal = parseFloat($('budgetAmountInput').value);
+  const fixed = $('budgetFixedInput').checked;
+  if(!name){ showToast('Elige un grupo.'); return; }
+  if(isNaN(amountVal) || amountVal <= 0){ showToast('Introduce una cantidad válida.'); return; }
+
+  if(fixed){
+    budgetTemplate[name] = amountVal;
+    // por si este mes lo habías quitado antes, que vuelva a mostrarse con el nuevo importe
+    if(budgetByMonth[budgetViewMonth]) delete budgetByMonth[budgetViewMonth][name];
+  } else {
+    setMonthOverride(name, budgetViewMonth, amountVal);
+  }
   await saveData();
-  render();
-  showToast(budget > 0 ? 'Presupuesto guardado.' : 'Presupuesto quitado.');
+  $('budgetAmountInput').value = '';
+  $('budgetFixedInput').checked = false;
+  renderBudgetCard();
+  showToast('Añadido al presupuesto.');
 }
-async function clearBudget(){
-  budget = 0;
+
+async function editBudgetItemAmount(name){
+  const current = effectiveBudget(name, budgetViewMonth) || 0;
+  const input = prompt(`Nuevo importe para "${name}" en ${monthLabel(budgetViewMonth)}:`, current);
+  if(input === null) return;
+  const val = parseFloat(input);
+  if(isNaN(val) || val <= 0){ showToast('Cantidad no válida.'); return; }
+  setMonthOverride(name, budgetViewMonth, val);
   await saveData();
-  render();
-  showToast('Presupuesto quitado.');
+  renderBudgetCard();
+  showToast('Importe actualizado.');
+}
+
+async function toggleBudgetItemFixed(name){
+  if(budgetTemplate.hasOwnProperty(name)){
+    delete budgetTemplate[name];
+    showToast('Ya no es fijo — a partir de ahora solo aplica a los meses en los que lo pongas.');
+  } else {
+    const amount = effectiveBudget(name, budgetViewMonth);
+    if(!(amount > 0)) return;
+    budgetTemplate[name] = amount;
+    showToast('Marcado como fijo — se repetirá cada mes.');
+  }
+  await saveData();
+  renderBudgetCard();
+}
+
+async function removeBudgetItem(name){
+  if(budgetTemplate.hasOwnProperty(name)){
+    setMonthOverride(name, budgetViewMonth, null);
+  } else if(budgetByMonth[budgetViewMonth]){
+    delete budgetByMonth[budgetViewMonth][name];
+  }
+  await saveData();
+  renderBudgetCard();
+  showToast('Quitado del presupuesto de este mes.');
+}
+
+function budgetFootRowHtml(expense, mKey){
+  const total = monthBudgetTotal(mKey);
+  if(!(total > 0)) return '';
+  const over = expense > total;
+  const diff = Math.abs(expense - total);
+  const pct = Math.round((diff / total) * 100);
+  return `<div class="hist-foot" style="border-top:none; padding-top:6px;"><span>Presupuesto (${fmt(total)})</span><span class="amt" style="color:${over ? 'var(--expense)' : 'var(--income)'};">${over ? '+' : '−'}${fmt(diff)} (${pct}%)</span></div>`;
 }
 
 function renderGroupFilterSelect(){
@@ -1197,7 +1559,7 @@ function renderHistorialCards(){
         <div class="hist-bar"><div class="hist-bar-fill" style="width:${ratio}%"></div></div>
         <div class="hist-foot"><span>Ahorro acumulado: <span class="amt">${fmt(r.cumulative)}</span></span><span>${r.count} mov.</span></div>
         ${r.topExpense ? `<div class="hist-foot" style="border-top:none; padding-top:6px;"><span>Mayor gasto</span><span class="top-expense">${escapeHtml(r.topExpense.description)} · <span class="amt">${fmt(r.topExpense.amount)}</span></span></div>` : ''}
-        ${budgetFootRowHtml(totals.expense)}
+        ${budgetFootRowHtml(totals.expense, r.key)}
       </div>`;
   }).join('');
 
@@ -1212,8 +1574,9 @@ function openMonthOverlay(key){
   const totals = computeTotals(list);
 
   $('monthOverlayTitle').textContent = monthLabel(key);
-  const budgetChip = budget > 0
-    ? `<span class="hist-budget-chip ${totals.expense > budget ? 'over' : 'under'}">${totals.expense > budget ? '+' : '−'}${fmt(Math.abs(totals.expense - budget))} vs presupuesto</span>`
+  const monthBudget = monthBudgetTotal(key);
+  const budgetChip = monthBudget > 0
+    ? `<span class="hist-budget-chip ${totals.expense > monthBudget ? 'over' : 'under'}">${totals.expense > monthBudget ? '+' : '−'}${fmt(Math.abs(totals.expense - monthBudget))} vs presupuesto</span>`
     : '';
   $('monthOverlayFigures').innerHTML = `
     <span class="chip income">+${fmt(totals.income)}</span>
@@ -1338,11 +1701,14 @@ function renderGroupsTab(){
   grid.innerHTML = `<div class="groups-grid">${sorted.map(g => {
     const list = transactions.filter(t => t.group === g.name);
     const totals = computeTotals(list);
+    const fixedAmount = budgetTemplate[g.name];
+    const budgetBadge = fixedAmount > 0 ? `<span style="font-size:11px; color:var(--accent-soft); font-family:'IBM Plex Mono', monospace;">📌 ${fmt(fixedAmount)}/mes</span>` : '';
     return `
       <div class="group-card" data-group="${escapeHtml(g.name)}">
         <div class="group-card-head">
           <span class="group-card-emoji">${escapeHtml(g.emoji)}</span>
           <span class="group-card-name">${escapeHtml(g.name)}</span>
+          ${budgetBadge}
         </div>
         <div class="group-card-stats">
           <span class="income">Ingresos <b>${fmt(totals.income)}</b></span>
@@ -1429,6 +1795,22 @@ function loadGroupIntoForm(name){
 }
 
 /* ---------------- Groups management ---------------- */
+function renameGroupEverywhere(oldName, newName){
+  transactions.forEach(t => { if(t.group === oldName) t.group = newName; });
+  recurring.forEach(r => { if(r.group === oldName) r.group = newName; });
+  if(budgetTemplate.hasOwnProperty(oldName)){
+    budgetTemplate[newName] = budgetTemplate[oldName];
+    delete budgetTemplate[oldName];
+  }
+  Object.keys(budgetByMonth).forEach(mKey => {
+    const monthMap = budgetByMonth[mKey];
+    if(monthMap && monthMap.hasOwnProperty(oldName)){
+      monthMap[newName] = monthMap[oldName];
+      delete monthMap[oldName];
+    }
+  });
+}
+
 async function handleSaveGroup(){
   const name = $('newGroupInput').value.trim();
   const emoji = $('newGroupEmojiInput').value.trim() || '🏷️';
@@ -1441,8 +1823,7 @@ async function handleSaveGroup(){
     const g = getGroup(editingGroupName);
     g.name = name; g.emoji = emoji;
     if(name !== editingGroupName){
-      transactions.forEach(t => { if(t.group === editingGroupName) t.group = name; });
-      recurring.forEach(r => { if(r.group === editingGroupName) r.group = name; });
+      renameGroupEverywhere(editingGroupName, name);
     }
   } else {
     if(groups.some(g => g.name === name)){ showToast('Ese grupo ya existe.'); return; }
@@ -1462,6 +1843,8 @@ async function handleDeleteGroup(){
   groups = groups.filter(g => g.name !== name);
   transactions.forEach(t => { if(t.group === name) t.group = ''; });
   recurring.forEach(r => { if(r.group === name) r.group = ''; });
+  delete budgetTemplate[name];
+  Object.values(budgetByMonth).forEach(monthMap => { if(monthMap) delete monthMap[name]; });
   await saveData();
   resetGroupForm();
   render();
@@ -1766,9 +2149,6 @@ $('methodTarjeta').addEventListener('click', () => setMethod('tarjeta'));
 $('exportBtn').addEventListener('click', exportCSV);
 $('addCardBtn').addEventListener('click', addCard);
 $('newCardInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') addCard(); });
-$('budgetSaveBtn').addEventListener('click', saveBudget);
-$('budgetInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') saveBudget(); });
-$('budgetClearLink').addEventListener('click', clearBudget);
 $('goToCardsLink').addEventListener('click', () => { closeModal(); switchView('tarjetas'); });
 $('goToGroupsLink').addEventListener('click', () => { closeModal(); switchView('grupos'); });
 $('groupOverlayClose').addEventListener('click', closeGroupOverlay);
@@ -1805,16 +2185,27 @@ function switchView(view){
   $('navTabs').querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.getAttribute('data-view') === view));
   $('viewMovimientos').classList.toggle('hidden', view !== 'movimientos');
   $('viewHistorial').classList.toggle('hidden', view !== 'historial');
+  $('viewPresupuesto').classList.toggle('hidden', view !== 'presupuesto');
   $('viewGrupos').classList.toggle('hidden', view !== 'grupos');
   $('viewRecurrentes').classList.toggle('hidden', view !== 'recurrentes');
   $('viewTarjetas').classList.toggle('hidden', view !== 'tarjetas');
+  $('viewAjustes').classList.toggle('hidden', view !== 'ajustes');
   $('fabBtn').style.display = view === 'movimientos' ? '' : 'none';
+  if(view === 'presupuesto') renderBudgetCard();
+  if(view === 'ajustes') renderAjustesTab();
 }
 $('navTabs').querySelectorAll('.nav-tab').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.getAttribute('data-view')));
 });
 
+$('budgetPrevMonth').addEventListener('click', () => shiftBudgetMonth(-1));
+$('budgetNextMonth').addEventListener('click', () => shiftBudgetMonth(1));
+$('budgetTodayLink').addEventListener('click', () => { budgetViewMonth = currentMonthKey(); renderBudgetCard(); });
+$('budgetAddBtn').addEventListener('click', handleAddBudgetItem);
+$('goToGroupsFromPresupuesto').addEventListener('click', () => switchView('grupos'));
+
 populateDaySelect();
+applyTheme(themePref);
 
 /* ---------------- PWA: registrar service worker (instalable en móvil/PC) ---------------- */
 if('serviceWorker' in navigator){
