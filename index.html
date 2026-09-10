@@ -601,17 +601,21 @@ service cloud.firestore {
     <div class="budget-add-form">
       <h3>Añadir al presupuesto</h3>
       <div class="group-form-row">
-        <select id="budgetGroupSelect"></select>
-        <input type="number" id="budgetAmountInput" class="mono-input" min="0" step="1" placeholder="Ej. 50">
+        <input type="text" id="budgetEmojiInput" class="emoji-field" placeholder="🏷️" maxlength="4">
+        <input type="text" id="budgetNameInput" class="name-field" placeholder="Ej. Móvil, Comida, Ocio..." list="existingGroupNames">
       </div>
-      <label class="field-checkbox-label" style="margin-top:10px;">
+      <datalist id="existingGroupNames"></datalist>
+      <div class="field" style="margin-top:10px; margin-bottom:0;">
+        <input type="number" id="budgetAmountInput" class="mono-input" min="0" step="1" placeholder="Cantidad, ej. 50">
+      </div>
+      <label class="field-checkbox-label" style="margin-top:14px;">
         <input type="checkbox" id="budgetFixedInput">
         📌 Fijo — repetir automáticamente cada mes
       </label>
       <div class="modal-actions" style="margin-top:14px;">
         <button class="btn-primary" id="budgetAddBtn" style="flex:1; justify-content:center;">Añadir</button>
       </div>
-      <div class="field-hint" id="budgetNoGroupsHint" style="display:none;">Antes crea algún grupo en la pestaña <a id="goToGroupsFromPresupuesto" style="color:var(--accent-soft); cursor:pointer; text-decoration:underline;">Grupos</a> (por ejemplo "📱 Móvil"), y luego vuelve aquí para ponerle presupuesto.</div>
+      <div class="field-hint">Si escribes el nombre de un grupo que ya tienes, se usará ese. Si no existe, se crea solo — no hace falta ir a la pestaña Grupos.</div>
     </div>
   </div>
 </section>
@@ -1351,42 +1355,47 @@ function renderBudgetCard(){
     });
   }
 
-  renderBudgetGroupSelect();
+  renderBudgetNameHelpers();
 }
 
-function renderBudgetGroupSelect(){
-  const sel = $('budgetGroupSelect');
-  const mKey = budgetViewMonth;
-  const already = new Set(effectiveBudgetItemsForMonth(mKey).map(it => it.name));
-  const available = groups.filter(g => !already.has(g.name));
-  $('budgetNoGroupsHint').style.display = groups.length === 0 ? 'block' : 'none';
-  if(available.length === 0){
-    sel.innerHTML = `<option value="">— No hay grupos disponibles —</option>`;
-    sel.disabled = true;
-  } else {
-    sel.disabled = false;
-    sel.innerHTML = available.map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.emoji)} ${escapeHtml(g.name)}</option>`).join('');
-  }
+function renderBudgetNameHelpers(){
+  // Autocompletado con los grupos que ya existen, pero se puede escribir cualquier nombre nuevo.
+  const list = $('existingGroupNames');
+  list.innerHTML = groups.map(g => `<option value="${escapeHtml(g.name)}">`).join('');
 }
 
 async function handleAddBudgetItem(){
-  const name = $('budgetGroupSelect').value;
+  const emoji = $('budgetEmojiInput').value.trim() || '🏷️';
+  const name = $('budgetNameInput').value.trim();
   const amountVal = parseFloat($('budgetAmountInput').value);
   const fixed = $('budgetFixedInput').checked;
-  if(!name){ showToast('Elige un grupo.'); return; }
+  if(!name){ showToast('Escribe un nombre, por ejemplo "Móvil".'); return; }
   if(isNaN(amountVal) || amountVal <= 0){ showToast('Introduce una cantidad válida.'); return; }
+
+  const mKey = budgetViewMonth;
+  if(effectiveBudgetItemsForMonth(mKey).some(it => it.name === name)){
+    showToast(`"${name}" ya está en el presupuesto de este mes — cambia el importe desde la lista de arriba.`);
+    return;
+  }
+
+  // Si no existe un grupo con ese nombre, se crea automáticamente.
+  if(!getGroup(name)){
+    groups.push({ name, emoji });
+  }
 
   if(fixed){
     budgetTemplate[name] = amountVal;
     // por si este mes lo habías quitado antes, que vuelva a mostrarse con el nuevo importe
-    if(budgetByMonth[budgetViewMonth]) delete budgetByMonth[budgetViewMonth][name];
+    if(budgetByMonth[mKey]) delete budgetByMonth[mKey][name];
   } else {
-    setMonthOverride(name, budgetViewMonth, amountVal);
+    setMonthOverride(name, mKey, amountVal);
   }
   await saveData();
+  $('budgetEmojiInput').value = '';
+  $('budgetNameInput').value = '';
   $('budgetAmountInput').value = '';
   $('budgetFixedInput').checked = false;
-  renderBudgetCard();
+  render();
   showToast('Añadido al presupuesto.');
 }
 
@@ -2202,7 +2211,6 @@ $('budgetPrevMonth').addEventListener('click', () => shiftBudgetMonth(-1));
 $('budgetNextMonth').addEventListener('click', () => shiftBudgetMonth(1));
 $('budgetTodayLink').addEventListener('click', () => { budgetViewMonth = currentMonthKey(); renderBudgetCard(); });
 $('budgetAddBtn').addEventListener('click', handleAddBudgetItem);
-$('goToGroupsFromPresupuesto').addEventListener('click', () => switchView('grupos'));
 
 populateDaySelect();
 applyTheme(themePref);
