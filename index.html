@@ -388,6 +388,7 @@ main{ max-width:960px; margin:14px auto 24px; padding:0 20px; }
 .field input:focus, .field select:focus{ outline:none; border-color:var(--accent); }
 .field input.mono-input{ font-family:'IBM Plex Mono', monospace; }
 .field-hint{ font-size:12px; color:var(--text-dim); margin-top:6px; }
+.calc-preview{ font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--accent-soft); margin-top:7px; }
 .field-hint a{ color:var(--accent-soft); cursor:pointer; text-decoration:underline; }
 
 .modal-actions{ display:flex; gap:10px; margin-top:20px; }
@@ -609,7 +610,8 @@ service cloud.firestore {
       </div>
       <datalist id="existingGroupNames"></datalist>
       <div class="field" style="margin-top:10px; margin-bottom:0;">
-        <input type="number" id="budgetAmountInput" class="mono-input" min="0" step="1" placeholder="Cantidad, ej. 50">
+        <input type="text" inputmode="decimal" id="budgetAmountInput" class="mono-input" placeholder="Cantidad, ej. 50 (o suma: 20+15+5)">
+        <div class="calc-preview hidden" id="budgetAmountPreview"></div>
       </div>
       <label class="field-checkbox-label" style="margin-top:14px;">
         <input type="checkbox" id="budgetFixedInput">
@@ -654,7 +656,8 @@ service cloud.firestore {
       </div>
       <div class="field">
         <label for="rAmount">Cantidad (€)</label>
-        <input type="number" id="rAmount" class="mono-input" step="0.01" min="0" placeholder="0.00">
+        <input type="text" inputmode="decimal" id="rAmount" class="mono-input" placeholder="0.00 · o suma: 12+8+3">
+        <div class="calc-preview hidden" id="rAmountPreview"></div>
       </div>
       <div class="field">
         <label for="rDesc">Descripción</label>
@@ -753,7 +756,8 @@ service cloud.firestore {
     </div>
     <div class="field">
       <label for="fAmount">Cantidad (€)</label>
-      <input type="number" id="fAmount" class="mono-input" step="0.01" min="0" placeholder="0.00">
+      <input type="text" inputmode="decimal" id="fAmount" class="mono-input" placeholder="0.00 · o suma: 12+8+3">
+      <div class="calc-preview hidden" id="fAmountPreview"></div>
     </div>
     <div class="field">
       <label for="fDesc">Descripción</label>
@@ -839,6 +843,105 @@ const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto'
 const $ = (id) => document.getElementById(id);
 let amountsHidden = false;
 const fmt = (n) => amountsHidden ? '•••••' : new Intl.NumberFormat('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n) + ' €';
+const fmtPlain = (n) => new Intl.NumberFormat('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n) + ' €';
+
+// Evalúa expresiones tipo "12.50+8+3,20" para poder sumar varios gastos en un
+// mismo campo de cantidad. Solo admite dígitos y + - * / ( ) . , — nada de
+// letras ni otros caracteres, así que Function() no puede ejecutar nada raro.
+function evalAmountExpression(raw){
+  if(raw === null || raw === undefined) return NaN;
+  const s = String(raw).trim().replace(/,/g, '.').replace(/\s+/g, '');
+  if(s === '') return NaN;
+  if(!/^[0-9+\-*/.()]+$/.test(s)) return NaN;
+  try{
+    const val = Function('"use strict";return (' + s + ')')();
+    return (typeof val === 'number' && isFinite(val)) ? val : NaN;
+  }catch(e){
+    return NaN;
+  }
+}
+function isAmountExpression(raw){
+  return /[+\-*/]/.test(String(raw||'').trim().replace(/^-/, ''));
+}
+// Devuelve la cantidad final de un campo, calculando la suma si hace falta.
+function resolveAmountFromInput(inputId){
+  const raw = $(inputId).value;
+  if(isAmountExpression(raw)) return evalAmountExpression(raw);
+  return parseFloat(String(raw).replace(',', '.'));
+}
+// Conecta un campo de cantidad para que, si escribes una suma (12+8+3),
+// se vea el resultado en vivo debajo, y al salir del campo se sustituya
+// por el número ya calculado.
+function wireAmountCalc(inputId, previewId){
+  const input = $(inputId);
+  const preview = $(previewId);
+  function updatePreview(){
+    const raw = input.value;
+    if(!isAmountExpression(raw)){
+      preview.classList.add('hidden');
+      preview.textContent = '';
+      return;
+    }
+    const val = evalAmountExpression(raw);
+    preview.classList.remove('hidden');
+    preview.textContent = isNaN(val) ? '…' : ('= ' + fmtPlain(val));
+  }
+  function collapse(){
+    const raw = input.value;
+    if(!isAmountExpression(raw)) return;
+    const val = evalAmountExpression(raw);
+    if(!isNaN(val) && val > 0){
+      input.value = val.toFixed(2);
+    }
+    preview.classList.add('hidden');
+    preview.textContent = '';
+  }
+  input.addEventListener('input', updatePreview);
+  input.addEventListener('blur', collapse);
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); collapse(); }
+  });
+}
+
+/* ---------------- Añadir por URL (atajos de Siri / accesos directos) ----------------
+   Si la URL trae ?add=1&desc=...&amount=...[&type=gasto|ingreso&group=...&method=tarjeta]
+   se añade el movimiento automáticamente (o se abre el formulario relleno si falta
+   la cantidad). Pensado para enlazarlo desde un Atajo de Siri, un widget o similar. */
+async function handleQuickAddFromURL(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('add') !== '1') return;
+
+  const desc = (params.get('desc') || params.get('descripcion') || '').trim();
+  const amountParam = params.get('amount') || params.get('cantidad');
+  const typeParam = (params.get('type') || params.get('tipo') || 'gasto').toLowerCase() === 'ingreso' ? 'ingreso' : 'gasto';
+  const groupParam = (params.get('group') || params.get('grupo') || '').trim();
+  const methodParam = (params.get('method') || params.get('metodo') || 'efectivo').toLowerCase() === 'tarjeta' ? 'tarjeta' : 'efectivo';
+
+  // Limpiamos los parámetros de la URL para que un refresco no repita el alta.
+  window.history.replaceState({}, '', window.location.pathname);
+
+  if(!desc) return;
+
+  const amount = amountParam !== null ? evalAmountExpression(amountParam) : NaN;
+  const matchedGroup = groups.some(g => g.name === groupParam) ? groupParam : '';
+
+  if(!isNaN(amount) && amount > 0){
+    transactions.push({
+      id: genId(),
+      amount, description: desc, date: todayStr(),
+      type: typeParam, method: methodParam, cardName: '', group: matchedGroup
+    });
+    await saveData();
+    render();
+    showToast(`Añadido: ${desc} (${fmtPlain(amount)})`);
+  } else {
+    openModal(null);
+    setType(typeParam);
+    $('fDesc').value = desc;
+    if(matchedGroup) populateGroupSelect(matchedGroup);
+    showToast('Añadido el nombre — completa la cantidad y guarda.');
+  }
+}
 
 let transactions = [];
 let cards = [];
@@ -890,6 +993,7 @@ if(!isConfigured){
       $('appRoot').classList.remove('hidden');
       $('userEmail').textContent = user.email;
       await loadData();
+      await handleQuickAddFromURL();
     } else {
       currentUser = null;
       $('appRoot').classList.add('hidden');
@@ -1370,7 +1474,7 @@ function renderBudgetNameHelpers(){
 async function handleAddBudgetItem(){
   const emoji = $('budgetEmojiInput').value.trim() || '🏷️';
   const name = $('budgetNameInput').value.trim();
-  const amountVal = parseFloat($('budgetAmountInput').value);
+  const amountVal = resolveAmountFromInput('budgetAmountInput');
   const fixed = $('budgetFixedInput').checked;
   if(!name){ showToast('Escribe un nombre, por ejemplo "Móvil".'); return; }
   if(isNaN(amountVal) || amountVal <= 0){ showToast('Introduce una cantidad válida.'); return; }
@@ -1953,7 +2057,7 @@ function loadRecurringIntoForm(id){
 }
 
 async function handleSaveRecurring(){
-  const amount = parseFloat($('rAmount').value);
+  const amount = resolveAmountFromInput('rAmount');
   const description = $('rDesc').value.trim();
   const day = parseInt($('rDay').value, 10);
   const cardName = rCurrentMethod === 'tarjeta' ? $('rCardSelect').value : '';
@@ -2094,7 +2198,7 @@ function openModal(id){
 function closeModal(){ $('overlay').classList.remove('open'); editingId = null; }
 
 async function handleSave(){
-  const amount = parseFloat($('fAmount').value);
+  const amount = resolveAmountFromInput('fAmount');
   const description = $('fDesc').value.trim();
   const date = $('fDate').value;
   const cardName = currentMethod === 'tarjeta' ? $('fCardSelect').value : '';
@@ -2217,6 +2321,9 @@ $('budgetAddBtn').addEventListener('click', handleAddBudgetItem);
 
 populateDaySelect();
 applyTheme(themePref);
+wireAmountCalc('fAmount', 'fAmountPreview');
+wireAmountCalc('rAmount', 'rAmountPreview');
+wireAmountCalc('budgetAmountInput', 'budgetAmountPreview');
 
 /* ---------------- PWA: registrar service worker (instalable en móvil/PC) ---------------- */
 if('serviceWorker' in navigator){
