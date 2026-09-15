@@ -610,7 +610,7 @@ service cloud.firestore {
       </div>
       <datalist id="existingGroupNames"></datalist>
       <div class="field" style="margin-top:10px; margin-bottom:0;">
-        <input type="text" inputmode="decimal" id="budgetAmountInput" class="mono-input" placeholder="Cantidad, ej. 50 (o suma: 20+15+5)">
+        <input type="text" inputmode="decimal" id="budgetAmountInput" class="mono-input" placeholder="Ej. 50">
         <div class="calc-preview hidden" id="budgetAmountPreview"></div>
       </div>
       <label class="field-checkbox-label" style="margin-top:14px;">
@@ -1320,7 +1320,13 @@ async function processRecurring(){
 }
 
 /* ---------------- Helpers ---------------- */
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+function todayStr(){
+  // OJO: usamos la fecha LOCAL del dispositivo (no UTC), para que el cambio
+  // de día — y por tanto los movimientos recurrentes — ocurra justo a las
+  // 00:00 hora local, no a las 00:00 UTC (que podía ir 1-2 horas desfasado).
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 function monthKey(dateStr){ return dateStr.slice(0,7); }
 function monthLabel(key){ const [y,m] = key.split('-'); return `${MESES[parseInt(m,10)-1]} ${y}`; }
 function monthShortLabel(key){ const [y,m] = key.split('-'); return `${MESES[parseInt(m,10)-1].slice(0,3)} ${y.slice(2)}`; }
