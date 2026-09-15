@@ -1319,6 +1319,22 @@ async function processRecurring(){
   if(changed) await saveData();
 }
 
+/* Vuelve a comprobar los recurrentes cuando abres/vuelves a la app (no solo al
+   iniciar sesión), para que un pago del día 15 aparezca justo ese día aunque
+   llevaras la app abierta o en segundo plano desde antes. */
+function startRecurringWatcher(){
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && currentUser){
+      processRecurring().then(render);
+    }
+  });
+  setInterval(() => {
+    if(currentUser && document.visibilityState === 'visible'){
+      processRecurring().then(render);
+    }
+  }, 15 * 60 * 1000);
+}
+
 /* ---------------- Helpers ---------------- */
 function todayStr(){
   // OJO: usamos la fecha LOCAL del dispositivo (no UTC), para que el cambio
@@ -2330,6 +2346,7 @@ applyTheme(themePref);
 wireAmountCalc('fAmount', 'fAmountPreview');
 wireAmountCalc('rAmount', 'rAmountPreview');
 wireAmountCalc('budgetAmountInput', 'budgetAmountPreview');
+startRecurringWatcher();
 
 /* ---------------- PWA: registrar service worker (instalable en móvil/PC) ---------------- */
 if('serviceWorker' in navigator){
