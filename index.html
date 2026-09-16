@@ -510,8 +510,25 @@ service cloud.firestore {
   </div>
 </div>
 
+<!-- ============ UNLOCK SCREEN (cifrado activado) ============ -->
+<div class="center-screen hidden" id="unlockScreen">
+  <div class="auth-card">
+    <div class="brand"><span class="mark"></span><h1>Quantify</h1></div>
+    <h2>🔒 Tus datos están cifrados</h2>
+    <p class="sub">Escribe tu clave de cifrado para desbloquearlos en este dispositivo. No se guarda en ningún sitio — solo tú la tienes.</p>
+    <div class="auth-error" id="unlockError"></div>
+    <div class="field">
+      <label for="unlockPassphraseInput">Clave de cifrado</label>
+      <input type="password" id="unlockPassphraseInput" autocomplete="off">
+    </div>
+    <button class="btn-primary" id="unlockSubmitBtn">Desbloquear</button>
+    <div class="auth-switch"><a id="unlockLogoutLink">¿No es tu cuenta? Cerrar sesión</a></div>
+  </div>
+</div>
+
 <!-- ============ APP ============ -->
 <div id="appRoot" class="hidden">
+
 
 <header class="app-header">
   <div class="brand">
@@ -742,6 +759,12 @@ service cloud.firestore {
       <div class="field-hint" style="margin-top:8px;">Al entrar verás puntos en vez de números. Pulsa el icono del ojo (👁️) junto al total para mostrarlos cuando quieras, ese toque solo dura mientras tengas la app abierta.</div>
     </div>
 
+    <div class="settings-card">
+      <h3>🔒 Cifrado de extremo a extremo</h3>
+      <div id="encStatusHint" class="field-hint" style="margin-bottom:12px;"></div>
+      <div class="settings-actions" id="encControls"></div>
+    </div>
+
   </div>
 </section>
 
@@ -816,6 +839,32 @@ service cloud.firestore {
   </div>
 </div>
 
+<div class="overlay" id="encryptionOverlay">
+  <div class="modal">
+    <h2 id="encryptionModalTitle">Activar cifrado</h2>
+    <div class="field hidden" id="encCurrentField">
+      <label for="encCurrentInput">Clave de cifrado actual</label>
+      <input type="password" id="encCurrentInput" autocomplete="off">
+    </div>
+    <div class="field" id="encNewFieldWrap">
+      <label for="encNewInput" id="encNewLabel">Nueva clave de cifrado</label>
+      <input type="password" id="encNewInput" autocomplete="off">
+    </div>
+    <div class="field" id="encConfirmFieldWrap">
+      <label for="encConfirmInput">Repite la clave</label>
+      <input type="password" id="encConfirmInput" autocomplete="off">
+    </div>
+    <div class="auth-error" id="encModalError"></div>
+    <div class="field-hint" id="encWarningBox" style="background:var(--expense-soft); color:var(--expense); padding:12px; border-radius:8px; margin-bottom:14px;"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="encModalSubmitBtn" style="flex:1; justify-content:center;">Confirmar</button>
+    </div>
+    <div style="text-align:center; margin-top:14px;">
+      <button class="btn-ghost" id="encModalCancelBtn" style="border:none;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 </div><!-- /appRoot -->
@@ -868,6 +917,83 @@ function resolveAmountFromInput(inputId){
   const raw = $(inputId).value;
   if(isAmountExpression(raw)) return evalAmountExpression(raw);
   return parseFloat(String(raw).replace(',', '.'));
+}
+
+/* ================= Cifrado de extremo a extremo (AES-256-GCM) =================
+   Tus datos (movimientos, tarjetas, grupos, recurrentes, presupuesto) se cifran
+   en TU dispositivo con una clave derivada de tu clave de cifrado, ANTES de
+   enviarse a Firestore. Lo único que se guarda en la base de datos es la sal
+   (no es secreta) y el texto cifrado — nadie con acceso a la base de datos
+   (incluido tú desde la consola de Firebase) puede leerlo sin la clave, que
+   nunca se guarda en ningún sitio, solo vive en la memoria del navegador
+   mientras tienes la sesión abierta. */
+const ENC_ITERATIONS = 250000;
+function b64encode(bytes){
+  let bin = '';
+  const arr = new Uint8Array(bytes);
+  for(let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+  return btoa(bin);
+}
+function b64decode(str){
+  const bin = atob(str);
+  const arr = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+function newSaltB64(){
+  return b64encode(crypto.getRandomValues(new Uint8Array(16)));
+}
+async function deriveKeyFromPassphrase(passphrase, saltB64){
+  const enc = new TextEncoder();
+  const saltBuf = b64decode(saltB64);
+  const baseKey = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt: saltBuf, iterations: ENC_ITERATIONS, hash:'SHA-256' },
+    baseKey, { name:'AES-GCM', length:256 }, true, ['encrypt','decrypt']
+  );
+}
+// Guarda la clave ya derivada SOLO en este dispositivo (localStorage), para no
+// tener que volver a escribir la clave de cifrado cada vez que abres la app.
+// La clave nunca sale de tu dispositivo ni se manda a ningún sitio; esto no
+// afecta a la protección de la base de datos, que sigue igual de cifrada.
+function localKeyStorageId(uid){ return 'quantify-enckey-' + uid; }
+async function cacheKeyLocally(uid, key){
+  try{
+    const raw = await crypto.subtle.exportKey('raw', key);
+    localStorage.setItem(localKeyStorageId(uid), b64encode(raw));
+  }catch(e){}
+}
+async function loadCachedKey(uid){
+  try{
+    const b64 = localStorage.getItem(localKeyStorageId(uid));
+    if(!b64) return null;
+    return await crypto.subtle.importKey('raw', b64decode(b64), {name:'AES-GCM'}, true, ['encrypt','decrypt']);
+  }catch(e){ return null; }
+}
+function clearCachedKey(uid){
+  try{ localStorage.removeItem(localKeyStorageId(uid)); }catch(e){}
+}
+async function encryptPayload(key, obj){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(JSON.stringify(obj));
+  const cipherBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, data);
+  return { iv: b64encode(iv), ciphertext: b64encode(cipherBuf) };
+}
+async function decryptPayload(key, ivB64, ciphertextB64){
+  const iv = b64decode(ivB64);
+  const cipherBuf = b64decode(ciphertextB64);
+  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, cipherBuf);
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+// Comprueba una clave contra lo que hay guardado ahora mismo en Firestore
+// (para "cambiar" o "desactivar" el cifrado con garantías). Lanza si falla.
+async function verifyPassphraseAgainstServer(passphrase){
+  const doc = await db.collection('users').doc(currentUser.uid).get();
+  const data = doc.exists ? doc.data() : {};
+  if(!data.encrypted) throw new Error('no-encrypted-data');
+  const key = await deriveKeyFromPassphrase(passphrase, encryptionSalt);
+  await decryptPayload(key, data.encrypted.iv, data.encrypted.ciphertext);
+  return key;
 }
 // Conecta un campo de cantidad para que, si escribes una suma (12+8+3),
 // se vea el resultado en vivo debajo, y al salir del campo se sustituya
@@ -952,6 +1078,10 @@ let budgetByMonth = {};    // { "YYYY-MM": { groupName: amount|null } } — camb
 let budgetViewMonth = null; // mes que se está viendo/editando en la pestaña Presupuesto
 let themePref = (function(){ try{ return localStorage.getItem('quantify-theme') || 'dark'; }catch(e){ return 'dark'; } })();       // 'dark' | 'light' | 'auto'
 let hideAmountsOnOpen = false;
+let encryptionEnabled = false;
+let encryptionSalt = null;      // base64, no es secreto, va en Firestore en claro
+let encryptionKey = null;       // CryptoKey derivada de tu clave — SOLO en memoria, nunca se guarda
+let pendingEncryptedBlob = null; // {iv, ciphertext} pendiente de desbloquear
 let editingId = null;
 let currentType = 'gasto';
 let currentMethod = 'efectivo';
@@ -993,11 +1123,14 @@ if(!isConfigured){
       $('appRoot').classList.remove('hidden');
       $('userEmail').textContent = user.email;
       await loadData();
-      await handleQuickAddFromURL();
     } else {
       currentUser = null;
+      encryptionKey = null;
+      encryptionSalt = null;
+      pendingEncryptedBlob = null;
       $('appRoot').classList.add('hidden');
       $('verifyScreen').classList.add('hidden');
+      $('unlockScreen').classList.add('hidden');
       $('authScreen').classList.remove('hidden');
     }
   });
@@ -1116,7 +1249,7 @@ if(isConfigured){
   $('authPasswordConfirm').addEventListener('keydown', (e) => { if(e.key === 'Enter') handleAuthSubmit(); });
   $('googleSignInBtn').addEventListener('click', handleGoogleSignIn);
   $('settingsLink').addEventListener('click', () => switchView('ajustes'));
-  $('settingsLogoutBtn').addEventListener('click', () => auth.signOut());
+  $('settingsLogoutBtn').addEventListener('click', () => { if(currentUser) clearCachedKey(currentUser.uid); encryptionKey = null; auth.signOut(); });
   $('eyeToggleBtn').addEventListener('click', toggleAmountsHidden);
   $('changePasswordBtn').addEventListener('click', handleChangePassword);
   $('themeToggle').querySelectorAll('[data-theme-opt]').forEach(btn => {
@@ -1125,62 +1258,91 @@ if(isConfigured){
   $('hideAmountsInput').addEventListener('change', (e) => setHideAmountsOnOpen(e.target.checked));
   $('verifyCheckBtn').addEventListener('click', handleVerifyCheck);
   $('verifyResendBtn').addEventListener('click', handleVerifyResend);
-  $('verifyLogoutLink').addEventListener('click', () => auth.signOut());
+  $('verifyLogoutLink').addEventListener('click', () => { if(currentUser) clearCachedKey(currentUser.uid); encryptionKey = null; auth.signOut(); });
+  $('unlockSubmitBtn').addEventListener('click', handleUnlockSubmit);
+  $('unlockPassphraseInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') handleUnlockSubmit(); });
+  $('unlockLogoutLink').addEventListener('click', () => { if(currentUser) clearCachedKey(currentUser.uid); encryptionKey = null; pendingEncryptedBlob = null; auth.signOut(); });
+  $('encModalSubmitBtn').addEventListener('click', handleEncryptionModalSubmit);
+  $('encModalCancelBtn').addEventListener('click', closeEncryptionModal);
+  $('encryptionOverlay').addEventListener('click', (e) => { if(e.target.id === 'encryptionOverlay') closeEncryptionModal(); });
 }
 
 /* ---------------- Data (Firestore) ---------------- */
+function applyPlainPayload(data){
+  transactions = data.transactions || [];
+  cards = data.cards || [];
+  groups = (data.groups || []).map(g => typeof g === 'string' ? { name: g, emoji: '🏷️' } : g);
+  recurring = data.recurring || [];
+  budgetTemplate = data.budgetTemplate || {};
+  budgetByMonth = data.budgetByMonth || {};
+  // Migración: versión anterior guardaba el presupuesto dentro de cada grupo (g.budget).
+  if(Object.keys(budgetTemplate).length === 0){
+    let migrated = false;
+    groups.forEach(g => { if(g.budget > 0){ budgetTemplate[g.name] = g.budget; migrated = true; } });
+    if(migrated){ groups.forEach(g => { delete g.budget; }); }
+  }
+}
+
 async function loadData(){
   budgetViewMonth = currentMonthKey();
+  let data = {};
   try{
     const doc = await db.collection('users').doc(currentUser.uid).get();
-    if(doc.exists){
-      const data = doc.data();
-      transactions = data.transactions || [];
-      cards = data.cards || [];
-      groups = (data.groups || []).map(g => typeof g === 'string' ? { name: g, emoji: '🏷️' } : g);
-      recurring = data.recurring || [];
-      budgetTemplate = data.budgetTemplate || {};
-      budgetByMonth = data.budgetByMonth || {};
-      const settings = data.settings || {};
-      themePref = settings.theme || 'dark';
-      hideAmountsOnOpen = !!settings.hideAmountsOnOpen;
-      // Migración: versión anterior guardaba el presupuesto dentro de cada grupo (g.budget).
-      if(Object.keys(budgetTemplate).length === 0){
-        let migrated = false;
-        groups.forEach(g => { if(g.budget > 0){ budgetTemplate[g.name] = g.budget; migrated = true; } });
-        if(migrated){ groups.forEach(g => { delete g.budget; }); }
-      }
-    } else {
-      transactions = [];
-      cards = [];
-      groups = [];
-      recurring = [];
-      budgetTemplate = {};
-      budgetByMonth = {};
-      themePref = 'dark';
-      hideAmountsOnOpen = false;
-    }
+    data = doc.exists ? doc.data() : {};
   }catch(e){
     showToast('No se pudieron cargar tus datos.');
-    transactions = [];
-    cards = [];
-    groups = [];
-    recurring = [];
-    budgetTemplate = {};
-    budgetByMonth = {};
+    data = {};
   }
+
+  const settings = data.settings || {};
+  themePref = settings.theme || 'dark';
+  hideAmountsOnOpen = !!settings.hideAmountsOnOpen;
+  encryptionEnabled = !!settings.encryptionEnabled;
+  encryptionSalt = settings.encryptionSalt || null;
   amountsHidden = hideAmountsOnOpen;
   applyTheme(themePref);
+
+  if(encryptionEnabled && data.encrypted){
+    if(!encryptionKey){
+      encryptionKey = await loadCachedKey(currentUser.uid);
+    }
+    if(encryptionKey){
+      try{
+        applyPlainPayload(await decryptPayload(encryptionKey, data.encrypted.iv, data.encrypted.ciphertext));
+      }catch(e){
+        encryptionKey = null;
+        clearCachedKey(currentUser.uid);
+      }
+    }
+    if(!encryptionKey){
+      pendingEncryptedBlob = data.encrypted;
+      showUnlockScreen();
+      return; // se detiene aquí hasta que metas la clave correcta
+    }
+  } else {
+    applyPlainPayload(data);
+  }
+
+  await finishLoad();
+}
+
+async function finishLoad(){
   await processRecurring();
   render();
+  await handleQuickAddFromURL();
 }
 
 async function saveData(){
   try{
-    await db.collection('users').doc(currentUser.uid).set({
-      transactions, cards, groups, recurring, budgetTemplate, budgetByMonth,
-      settings: { theme: themePref, hideAmountsOnOpen }
-    }, { merge:false });
+    const settings = { theme: themePref, hideAmountsOnOpen, encryptionEnabled, encryptionSalt };
+    if(encryptionEnabled && encryptionKey){
+      const encrypted = await encryptPayload(encryptionKey, { transactions, cards, groups, recurring, budgetTemplate, budgetByMonth });
+      await db.collection('users').doc(currentUser.uid).set({ encrypted, settings }, { merge:false });
+    } else {
+      await db.collection('users').doc(currentUser.uid).set({
+        transactions, cards, groups, recurring, budgetTemplate, budgetByMonth, settings
+      }, { merge:false });
+    }
   }catch(e){
     showToast('Error al guardar los datos.');
   }
@@ -1260,6 +1422,150 @@ function renderAjustesTab(){
   renderAccountSection();
   renderThemeToggle();
   $('hideAmountsInput').checked = hideAmountsOnOpen;
+  renderEncryptionSection();
+}
+
+/* ---------------- Cifrado: UI de Ajustes ---------------- */
+function renderEncryptionSection(){
+  const hint = $('encStatusHint');
+  const controls = $('encControls');
+  if(encryptionEnabled){
+    hint.innerHTML = '✅ Activado. Tus datos se guardan cifrados — nadie puede leerlos sin tu clave, ni siquiera con acceso a la base de datos. En este dispositivo no hace falta que la vuelvas a escribir; solo te la pedirá de nuevo en un dispositivo nuevo o si cierras sesión.';
+    controls.innerHTML = `
+      <button class="btn-ghost" id="encChangeBtn">Cambiar clave</button>
+      <button class="btn-ghost" id="encDisableBtn" style="color:var(--expense); border-color:var(--expense);">Desactivar cifrado</button>`;
+    $('encChangeBtn').addEventListener('click', () => openEncryptionModal('change'));
+    $('encDisableBtn').addEventListener('click', () => openEncryptionModal('disable'));
+  } else {
+    hint.textContent = 'Desactivado. Tus datos se guardan legibles en la base de datos (protegidos solo por las reglas de acceso).';
+    controls.innerHTML = `<button class="btn-primary" id="encEnableBtn" style="flex:1; justify-content:center;">Activar cifrado</button>`;
+    $('encEnableBtn').addEventListener('click', () => openEncryptionModal('enable'));
+  }
+}
+
+let encModalMode = 'enable';
+function openEncryptionModal(mode){
+  encModalMode = mode;
+  $('encModalError').classList.remove('show');
+  $('encModalError').textContent = '';
+  $('encCurrentInput').value = '';
+  $('encNewInput').value = '';
+  $('encConfirmInput').value = '';
+  if(mode === 'enable'){
+    $('encryptionModalTitle').textContent = 'Activar cifrado';
+    $('encCurrentField').classList.add('hidden');
+    $('encNewFieldWrap').classList.remove('hidden');
+    $('encConfirmFieldWrap').classList.remove('hidden');
+    $('encNewLabel').textContent = 'Nueva clave de cifrado';
+    $('encModalSubmitBtn').textContent = 'Activar cifrado';
+    $('encWarningBox').textContent = '⚠️ Guarda muy bien esta clave: no se guarda en ningún sitio ni hay forma de recuperarla. Si la olvidas, perderás el acceso a todos tus datos para siempre.';
+  } else if(mode === 'change'){
+    $('encryptionModalTitle').textContent = 'Cambiar clave de cifrado';
+    $('encCurrentField').classList.remove('hidden');
+    $('encNewFieldWrap').classList.remove('hidden');
+    $('encConfirmFieldWrap').classList.remove('hidden');
+    $('encNewLabel').textContent = 'Nueva clave de cifrado';
+    $('encModalSubmitBtn').textContent = 'Cambiar clave';
+    $('encWarningBox').textContent = '⚠️ Si olvidas la clave nueva, no habrá forma de recuperar tus datos.';
+  } else {
+    $('encryptionModalTitle').textContent = 'Desactivar cifrado';
+    $('encCurrentField').classList.remove('hidden');
+    $('encNewFieldWrap').classList.add('hidden');
+    $('encConfirmFieldWrap').classList.add('hidden');
+    $('encModalSubmitBtn').textContent = 'Desactivar cifrado';
+    $('encWarningBox').textContent = '⚠️ Tus datos volverán a guardarse legibles en la base de datos (sin cifrar).';
+  }
+  $('encryptionOverlay').classList.add('open');
+}
+function closeEncryptionModal(){ $('encryptionOverlay').classList.remove('open'); }
+
+async function handleEncryptionModalSubmit(){
+  const errEl = $('encModalError');
+  errEl.classList.remove('show');
+  const showErr = (msg) => { errEl.textContent = msg; errEl.classList.add('show'); };
+
+  try{
+    if(encModalMode === 'enable'){
+      const p1 = $('encNewInput').value;
+      const p2 = $('encConfirmInput').value;
+      if(!p1 || p1.length < 4){ showErr('Usa al menos 4 caracteres.'); return; }
+      if(p1 !== p2){ showErr('Las dos claves no coinciden.'); return; }
+      const salt = newSaltB64();
+      const key = await deriveKeyFromPassphrase(p1, salt);
+      encryptionSalt = salt;
+      encryptionKey = key;
+      encryptionEnabled = true;
+      await cacheKeyLocally(currentUser.uid, key);
+      await saveData();
+      closeEncryptionModal();
+      renderEncryptionSection();
+      showToast('Cifrado activado.');
+    } else if(encModalMode === 'change'){
+      const current = $('encCurrentInput').value;
+      const p1 = $('encNewInput').value;
+      const p2 = $('encConfirmInput').value;
+      if(!current){ showErr('Escribe tu clave actual.'); return; }
+      if(!p1 || p1.length < 4){ showErr('La clave nueva debe tener al menos 4 caracteres.'); return; }
+      if(p1 !== p2){ showErr('Las dos claves nuevas no coinciden.'); return; }
+      await verifyPassphraseAgainstServer(current);
+      const newSalt = newSaltB64();
+      const newKey = await deriveKeyFromPassphrase(p1, newSalt);
+      encryptionSalt = newSalt;
+      encryptionKey = newKey;
+      await cacheKeyLocally(currentUser.uid, newKey);
+      await saveData();
+      closeEncryptionModal();
+      showToast('Clave de cifrado actualizada.');
+    } else {
+      const current = $('encCurrentInput').value;
+      if(!current){ showErr('Escribe tu clave actual.'); return; }
+      await verifyPassphraseAgainstServer(current);
+      encryptionEnabled = false;
+      encryptionKey = null;
+      encryptionSalt = null;
+      clearCachedKey(currentUser.uid);
+      await saveData();
+      closeEncryptionModal();
+      renderEncryptionSection();
+      showToast('Cifrado desactivado.');
+    }
+  }catch(e){
+    showErr('Clave incorrecta. Inténtalo de nuevo.');
+  }
+}
+
+/* ---------------- Pantalla de desbloqueo ---------------- */
+function showUnlockScreen(){
+  $('authScreen').classList.add('hidden');
+  $('verifyScreen').classList.add('hidden');
+  $('appRoot').classList.add('hidden');
+  $('unlockScreen').classList.remove('hidden');
+  $('unlockError').classList.remove('show');
+  $('unlockPassphraseInput').value = '';
+  setTimeout(() => $('unlockPassphraseInput').focus(), 100);
+}
+function hideUnlockScreen(){
+  $('unlockScreen').classList.add('hidden');
+  $('appRoot').classList.remove('hidden');
+}
+async function handleUnlockSubmit(){
+  const errEl = $('unlockError');
+  errEl.classList.remove('show');
+  const passphrase = $('unlockPassphraseInput').value;
+  if(!passphrase){ errEl.textContent = 'Escribe tu clave de cifrado.'; errEl.classList.add('show'); return; }
+  try{
+    const key = await deriveKeyFromPassphrase(passphrase, encryptionSalt);
+    const payload = await decryptPayload(key, pendingEncryptedBlob.iv, pendingEncryptedBlob.ciphertext);
+    encryptionKey = key;
+    await cacheKeyLocally(currentUser.uid, key);
+    applyPlainPayload(payload);
+    pendingEncryptedBlob = null;
+    hideUnlockScreen();
+    await finishLoad();
+  }catch(e){
+    errEl.textContent = 'Clave incorrecta. Inténtalo de nuevo.';
+    errEl.classList.add('show');
+  }
 }
 
 function showToast(msg){
