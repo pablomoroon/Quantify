@@ -30,6 +30,7 @@
 <link rel="icon" href="favicon.ico">
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
@@ -1102,6 +1103,13 @@ if(!isConfigured){
   $('setupScreen').classList.remove('hidden');
 } else {
   firebase.initializeApp(firebaseConfig);
+  // Clave pública de sitio: App Check se inicia antes de Auth y Firestore.
+  firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider(
+      '6LeFqb4tAAAAADzZt4wCGnK57pQwN8efJ2Yx4juc'
+    ),
+    true // Renovar automáticamente los tokens de App Check.
+  );
   auth = firebase.auth();
   db = firebase.firestore();
   googleProvider = new firebase.auth.GoogleAuthProvider();
@@ -2411,8 +2419,8 @@ async function handleSaveRecurring(){
   await processRecurring();
   await saveData();
   resetRecurringForm();
-  renderRecurringTab();
-  showToast('Recurrente guardado. Se añadirá automáticamente cada mes.');
+  render();
+  showToast('Recurrente guardado. Si ya corresponde, el movimiento aparece en Movimientos.');
 }
 
 async function handleDeleteRecurring(){
@@ -2432,8 +2440,9 @@ async function toggleRecurringActive(id){
   const r = recurring.find(x => x.id === id);
   if(!r) return;
   r.active = r.active === false ? true : false;
+  if(r.active) await processRecurring();
   await saveData();
-  renderRecurringTab();
+  render();
   showToast(r.active ? 'Recurrente reactivado.' : 'Recurrente pausado.');
 }
 
