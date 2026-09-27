@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Quantify — Control de finanzas</title>
 
 <script>
@@ -436,6 +436,205 @@ main{ max-width:960px; margin:14px auto 24px; padding:0 20px; }
 .setup-card li{ font-size:13.5px; color:var(--text); line-height:1.9; }
 .setup-card code{ background:var(--surface-2); padding:2px 6px; border-radius:4px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--accent-soft); }
 .setup-card pre{ background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:14px; font-family:'IBM Plex Mono', monospace; font-size:12px; overflow-x:auto; color:var(--text-dim); margin-bottom:16px; }
+/* ---------- Mobile / iOS / Android hardening ---------- */
+html{
+  width:100%;
+  min-height:100%;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  overscroll-behavior-x:none;
+}
+body{
+  width:100%;
+  min-width:0;
+  min-height:100vh;
+  min-height:100dvh;
+  padding-bottom:calc(80px + env(safe-area-inset-bottom));
+}
+button, a, input, select, textarea{ touch-action:manipulation; }
+input, select, textarea{ min-width:0; }
+img, canvas{ max-width:100%; }
+
+/* Evita que el contenido quede debajo del notch o de la barra Home en iPhone. */
+@supports (padding: max(0px)){
+  header.app-header,
+  .actions-row,
+  .nav-tabs,
+  main,
+  .filter-tabs,
+  .group-select-row,
+  .history,
+  .historial-cards,
+  .cards-wrap,
+  .settings-wrap,
+  .recurring-wrap,
+  .groups-wrap,
+  .budget-wrap{
+    padding-left:max(20px, env(safe-area-inset-left));
+    padding-right:max(20px, env(safe-area-inset-right));
+  }
+}
+
+@media (max-width:640px){
+  body{ padding-bottom:calc(96px + env(safe-area-inset-bottom)); }
+
+  header.app-header{
+    padding-top:calc(20px + env(safe-area-inset-top));
+    padding-left:calc(16px + env(safe-area-inset-left));
+    padding-right:calc(16px + env(safe-area-inset-right));
+  }
+  .actions-row, .nav-tabs, main, .filter-tabs, .group-select-row,
+  .history, .historial-cards, .cards-wrap, .settings-wrap,
+  .recurring-wrap, .groups-wrap, .budget-wrap{
+    padding-left:calc(16px + env(safe-area-inset-left));
+    padding-right:calc(16px + env(safe-area-inset-right));
+  }
+
+  .brand{ align-items:center; column-gap:8px; }
+  .brand .spacer{ min-width:0; }
+  .brand .user-email{ min-width:0; }
+  .brand .logout-link{ min-height:38px; padding:6px 2px; }
+
+  .hero{ gap:14px; }
+  .hero > div{ min-width:0; }
+  .hero-amount{
+    font-size:clamp(30px, 10vw, 38px);
+    overflow-wrap:anywhere;
+  }
+  .hero-sub{ gap:8px 14px; }
+  .sparkline{ min-width:0; }
+
+  .nav-tabs{
+    scroll-snap-type:x proximity;
+    overscroll-behavior-x:contain;
+  }
+  .nav-tab{
+    min-height:44px;
+    scroll-snap-align:start;
+  }
+  .filter-tabs{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .filter-tabs::-webkit-scrollbar{ display:none; }
+  .filter-tab{ flex:0 0 auto; min-height:40px; }
+  .group-select-row select{ max-width:100%; min-height:40px; font-size:16px; }
+
+  /* 16px evita el zoom automático de iOS al enfocar campos. */
+  .field input, .field select,
+  .card-add-row input,
+  .group-form-row input,
+  .budget-add-form select,
+  .budget-add-form input{
+    font-size:16px;
+  }
+
+  .budget-month-nav{
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .budget-month-label{
+    min-width:0;
+    flex:1 1 120px;
+  }
+  .budget-nav-btn{
+    width:42px;
+    height:42px;
+    padding:0;
+    flex:0 0 42px;
+  }
+  .budget-today-link{
+    position:static;
+    transform:none;
+    flex-basis:100%;
+    text-align:center;
+    margin-top:-2px;
+    min-height:32px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .budget-today-link.hidden{ display:none !important; }
+
+  .history-card{ min-width:0; }
+  .history-head{ align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .history-legend{ flex-wrap:wrap; gap:8px 12px; }
+
+  .settings-row{ gap:12px; align-items:flex-start; }
+  .settings-row > *{ min-width:0; }
+  #settingsEmail{
+    text-align:right;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+  #themeToggle{ flex-wrap:wrap; }
+  #themeToggle .method-btn{ flex:1 1 calc(50% - 4px); min-width:0; }
+
+  .recurring-item-top{ align-items:flex-start; }
+  .recurring-item-name{ min-width:0; overflow-wrap:anywhere; }
+  .recurring-item-amount{ flex-shrink:0; }
+
+  .overlay{
+    padding-left:env(safe-area-inset-left);
+    padding-right:env(safe-area-inset-right);
+  }
+  .modal{
+    max-height:calc(100dvh - max(12px, env(safe-area-inset-top)));
+    padding-bottom:calc(20px + env(safe-area-inset-bottom));
+    overscroll-behavior:contain;
+  }
+  #monthOverlayList, #groupOverlayList{
+    margin-left:-18px !important;
+    margin-right:-18px !important;
+    padding-left:18px !important;
+    padding-right:18px !important;
+  }
+
+  .fab{
+    right:calc(18px + env(safe-area-inset-right));
+    bottom:calc(18px + env(safe-area-inset-bottom));
+  }
+  .toast{
+    bottom:calc(18px + env(safe-area-inset-bottom));
+    width:max-content;
+    max-width:calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  }
+
+  .center-screen{
+    min-height:100vh;
+    min-height:100dvh;
+    padding-top:calc(20px + env(safe-area-inset-top));
+    padding-bottom:calc(20px + env(safe-area-inset-bottom));
+    padding-left:calc(16px + env(safe-area-inset-left));
+    padding-right:calc(16px + env(safe-area-inset-right));
+  }
+  .auth-card, .setup-card{ max-width:100%; }
+}
+
+@media (max-width:420px){
+  .brand .user-email{ display:none; }
+  .brand .spacer{ flex:1; }
+  .historial-cards, .groups-grid{ grid-template-columns:minmax(0,1fr); }
+  .hist-stats{ gap:6px; }
+  .hist-stat{ padding:8px 4px; }
+  .hist-stat .lbl{ font-size:9px; }
+  .hist-stat .val{ font-size:12.5px; }
+  .group-tag{ margin-left:0; margin-top:4px; }
+  .settings-actions .btn-ghost{ min-width:0; flex:1 1 100%; }
+}
+
+@media (max-width:360px){
+  .card-add-row{ flex-direction:column; }
+  .card-add-row .btn-primary{ justify-content:center; }
+  .group-form-row{ flex-wrap:wrap; }
+  .group-form-row input.name-field{ flex:1 1 180px; width:100%; }
+  .modal-actions{ flex-wrap:wrap; }
+  .modal-actions .btn-delete, .modal-actions .btn-primary{ flex:1 1 100%; }
+  .type-toggle{ gap:6px; }
+  .type-btn, .method-btn{ padding-left:8px; padding-right:8px; }
+}
+
 </style>
 </head>
 <body>
@@ -871,6 +1070,34 @@ service cloud.firestore {
 </div><!-- /appRoot -->
 
 <script>
+// Bloqueo de zoom: pinch/doble toque en móvil y atajos habituales en escritorio.
+// Se mantiene el desplazamiento normal de la página.
+(function lockMobileZoom(){
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function(type){
+    document.addEventListener(type, function(e){ e.preventDefault(); }, { passive:false });
+  });
+
+  document.addEventListener('touchmove', function(e){
+    if(e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive:false });
+
+  var lastTouchEnd = 0;
+  document.addEventListener('touchend', function(e){
+    var now = Date.now();
+    if(now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive:false });
+
+  document.addEventListener('wheel', function(e){
+    if(e.ctrlKey) e.preventDefault();
+  }, { passive:false });
+
+  document.addEventListener('keydown', function(e){
+    var modifier = e.ctrlKey || e.metaKey;
+    if(modifier && ['+', '-', '=', '0'].indexOf(e.key) !== -1) e.preventDefault();
+  });
+})();
+
 /* =========================================================================
    PASO 1: Sustituye este objeto por el "firebaseConfig" real de tu proyecto
    (lo encuentras en Configuración del proyecto → Tus apps, en la consola
