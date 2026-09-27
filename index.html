@@ -146,7 +146,8 @@ button:active{ transform:scale(0.97); }
 .btn-ghost:hover{ color:var(--text); border-color:var(--text-dim); }
 
 /* ---------- Nav tabs ---------- */
-.nav-tabs{ max-width:960px; margin:0 auto 18px; padding:0 20px; display:flex; gap:4px; border-bottom:1px solid var(--border); overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.nav-tabs{ max-width:960px; margin:0 auto 18px; padding:0 20px; display:flex; gap:4px; border-bottom:1px solid var(--border); overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x; overscroll-behavior-x:contain; overscroll-behavior-y:none; scroll-padding-inline:20px; }
+.nav-tabs::before, .nav-tabs::after{ content:""; flex:0 0 4px; }
 .nav-tabs::-webkit-scrollbar{ display:none; }
 .nav-tab{ background:transparent; color:var(--text-dim); font-size:14px; font-weight:500; padding:12px 4px; margin-right:22px; border-radius:0; border-bottom:2px solid transparent; position:relative; top:1px; white-space:nowrap; flex-shrink:0; }
 .nav-tab.active{ color:var(--text); border-bottom:2px solid var(--accent); font-weight:600; }
@@ -506,7 +507,12 @@ img, canvas{ max-width:100%; }
 
   .nav-tabs{
     scroll-snap-type:x proximity;
+    overflow-y:hidden;
+    touch-action:pan-x;
     overscroll-behavior-x:contain;
+    overscroll-behavior-y:none;
+    scroll-padding-left:calc(20px + env(safe-area-inset-left));
+    scroll-padding-right:calc(20px + env(safe-area-inset-right));
   }
   .nav-tab{
     min-height:44px;
